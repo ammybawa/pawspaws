@@ -108,9 +108,8 @@ jobs:
       - name: Stage Python artifact for deploy
         run: |
           mkdir -p _python_staging
-          # Skip ./deploy — same name as CI download dir; including it nests deploy/deploy/... on the server
           find . \
-            \( -path ./.git -o -path ./_python_staging -o -path ./deploy -o -path ./venv -o -path ./.venv \) -prune -o \
+            \( -path ./.git -o -path ./_python_staging -o -path ./venv -o -path ./.venv \) -prune -o \
             -type d \( -name __pycache__ -o -name .pytest_cache \) -prune -o \
             \( -name "*.py" -o -name "requirements.txt" -o -name "pyproject.toml" -o -name "Pipfile" -o -name "Pipfile.lock" \) -print0 |
             while IFS= read -r -d '' f; do
@@ -251,34 +250,34 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: node-build
-          path: deploy/
+          path: _artifact/
 
       - name: Download HTML artifact
         if: needs.detect.outputs.html == 'true' && needs.detect.outputs.node != 'true'
         uses: actions/download-artifact@v4
         with:
           name: html-build
-          path: deploy/
+          path: _artifact/
 
       - name: Download Python artifact
         if: needs.detect.outputs.python == 'true' && needs.detect.outputs.node != 'true' && needs.detect.outputs.html != 'true'
         uses: actions/download-artifact@v4
         with:
           name: python-build
-          path: deploy/
+          path: _artifact/
 
-      - name: Verify deploy files
+      - name: Verify files to upload
         run: |
-          echo "=== Files to deploy ==="
-          ls -laR deploy/ 2>/dev/null || true
+          echo "=== Staged for SCP (_artifact/) ==="
+          ls -laR _artifact/ 2>/dev/null || true
 
-      - name: Ensure deploy/ is not empty before SCP
+      - name: Ensure upload staging is not empty
         if: |
           needs.detect.outputs.node == 'true' || needs.detect.outputs.html == 'true' ||
           (needs.detect.outputs.python == 'true' && needs.detect.outputs.node != 'true' && needs.detect.outputs.html != 'true')
         run: |
-          if [ ! -d deploy ] || [ -z "$(ls -A deploy 2>/dev/null)" ]; then
-            echo "::error::deploy/ is missing or empty (nothing to upload). Check build output and artifact download path."
+          if [ ! -d _artifact ] || [ -z "$(ls -A _artifact 2>/dev/null)" ]; then
+            echo "::error::_artifact/ is missing or empty (nothing to upload). Check build output and artifact download path."
             ls -la
             exit 1
           fi
@@ -293,7 +292,7 @@ jobs:
           port: ${{ secrets.SSH_PORT != '' && secrets.SSH_PORT || '22' }}
           timeout: 2m
           command_timeout: 15m
-          source: "deploy/*"
+          source: "_artifact/*"
           target: ${{ secrets.DEPLOY_PATH }}
           rm: false
           overwrite: true
@@ -308,7 +307,7 @@ jobs:
           port: ${{ secrets.SSH_PORT != '' && secrets.SSH_PORT || '22' }}
           timeout: 2m
           command_timeout: 15m
-          source: "deploy/*"
+          source: "_artifact/*"
           target: ${{ secrets.DEPLOY_PATH }}
           rm: false
           overwrite: true
