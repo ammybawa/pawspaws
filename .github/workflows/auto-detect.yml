@@ -294,6 +294,7 @@ jobs:
           command_timeout: 15m
           source: "_artifact/*"
           target: ${{ secrets.DEPLOY_PATH }}
+          strip_components: 1
           rm: false
           overwrite: true
 
@@ -309,6 +310,7 @@ jobs:
           command_timeout: 15m
           source: "_artifact/*"
           target: ${{ secrets.DEPLOY_PATH }}
+          strip_components: 1
           rm: false
           overwrite: true
 
