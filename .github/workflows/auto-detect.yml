@@ -334,10 +334,23 @@ jobs:
 
             if [ "${{ needs.detect.outputs.python }}" = "true" ] && [ "${{ needs.detect.outputs.node }}" != "true" ] && [ "${{ needs.detect.outputs.html }}" != "true" ]; then
               if [ -f requirements.txt ]; then
-                python3 -m pip install --user -r requirements.txt || pip3 install -r requirements.txt
+                echo "=== Python: install into project venv (PEP 668 blocks system pip on Debian/Ubuntu) ==="
+                if [ ! -d venv ]; then
+                  python3 -m venv venv
+                fi
+                ./venv/bin/python -m pip install --upgrade pip
+                ./venv/bin/pip install -r requirements.txt
+              else
+                echo "No requirements.txt — skipping venv pip install"
               fi
-              # Uncomment if you run the app under systemd/pm2/gunicorn:
-              # sudo systemctl restart your-python-service
+              PY_SVC="${{ secrets.PYTHON_SYSTEMD_SERVICE }}"
+              if [ -n "$PY_SVC" ]; then
+                echo "=== Restart systemd: $PY_SVC ==="
+                sudo systemctl restart "$PY_SVC"
+                sudo systemctl is-active --quiet "$PY_SVC" || { echo "::error::Service $PY_SVC is not active after restart"; exit 1; }
+              else
+                echo "PYTHON_SYSTEMD_SERVICE secret not set — skipping systemctl restart"
+              fi
             fi
 
             PM2_NAME="${{ secrets.PM2_APP_NAME }}"
