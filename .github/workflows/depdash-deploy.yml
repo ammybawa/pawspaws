@@ -1,0 +1,44 @@
+# depdash-managed: do not edit — generator v1
+# app: default
+name: depdash-deploy
+on:
+  push:
+    branches: ['dev']
+  workflow_dispatch:
+
+jobs:
+  build-and-deploy:
+    runs-on: self-hosted
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Install dependencies
+        run: npm install
+      - name: Package artifact
+        run: STAGE=$(mktemp -d) && tar -czf "$STAGE/artifact.tar.gz" --exclude=node_modules/.cache --exclude=.git . && mv "$STAGE/artifact.tar.gz" . && rm -rf "$STAGE"
+      - name: Deploy (self-hosted)
+        run: |
+          mkdir -p '${{ secrets.DEPDASH_DEPLOY_PATH }}'
+          cp artifact.tar.gz '${{ secrets.DEPDASH_DEPLOY_PATH }}/artifact.tar.gz'
+          cd '${{ secrets.DEPDASH_DEPLOY_PATH }}'
+          tar -xzf artifact.tar.gz
+          pm2 describe '${{ secrets.DEPDASH_PM2_APP }}' >/dev/null 2>&1 && pm2 reload '${{ secrets.DEPDASH_PM2_APP }}' --update-env || pm2 start 'export NVM_DIR="/home/oesadmin/.nvm"
+          source ~/.nvm/nvm.sh
+          pm2 describe pythonrunner.customerdemourl.com > /dev/null \
+            && pm2 restart pythonrunner.customerdemourl.com --update-env \
+            || pm2 start app.py \
+                 --name pythonrunner.customerdemourl.com \
+                 --interpreter /var/www/pythonrunner.customerdemourl.com/venv/bin/python \
+                 --time
+          
+          pm2 save' --name '${{ secrets.DEPDASH_PM2_APP }}' --interpreter bash --time
+          pm2 save
+      - name: Notify depdash
+        env:
+          DEPDASH_CALLBACK_SECRET: ${{ secrets.DEPDASH_CALLBACK_8558589C_5100_4EAE_9882_C75657D33856 }}
+        run: |
+          BODY=$(jq -nc --arg run "$GITHUB_RUN_ID" --arg sha "$GITHUB_SHA" --arg status "success" --arg runurl "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID" '{ runId: $run, gitSha: $sha, status: $status, runUrl: $runurl }')
+          SIG=$(echo -n "$BODY" | openssl dgst -sha256 -hmac "$DEPDASH_CALLBACK_SECRET" -binary | xxd -p -c 256)
+          curl -fsS -X POST -H "content-type: application/json" -H "x-depdash-sig: sha256=$SIG" -d "$BODY" 'https://depdash.customerdemourl.com/api/webhooks/ci-result?pipelineId=8558589c-5100-4eae-9882-c75657d33856'
