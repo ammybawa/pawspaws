@@ -78,4 +78,4 @@ def book():
     return jsonify({"success": True, "message": f"Booking confirmed for {data.get('pet_name', 'your pet')}! We'll see you soon 🐾"})
 
 if __name__ == "__main__":
-    app.run(debug=True, port=5050)
+    app.run(debug=True, port=5051)
