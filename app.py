@@ -5,7 +5,7 @@ app = Flask(__name__)
 services = [
     {
         "id": 1,
-        "name": "Basic Bath & Dry",
+        "name": "Basic Bath",
         "price": 799,
         "duration": "1 hr",
         "description": "Full shampoo, conditioner rinse, blow dry & brush out.",
